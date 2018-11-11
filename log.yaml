@@ -1,0 +1,72 @@
+refresh_rate: 30 seconds #Scan this file every 30s
+appenders:
+    stdout:
+        kind: console
+        encoder:
+            pattern: "{d(%Y-%m-%d %H:%M:%S %Z)(utc)} {h( {l} [{M}] {m} )} {n}"
+
+    error_file:
+        kind: rolling_file
+        path: "log/error.log"
+        encoder:
+            pattern: "{d} {f}:{L}: {h( {l} {M} {m} in {T} )} {n}"
+        filters:
+            - kind: threshold
+              level: warn
+        policy:
+            kind: compound
+            trigger:
+                kind: size
+                limit: 1mb
+            roller:
+                kind: fixed_window
+                base: 1
+                count: 5
+                pattern: "logs/archive/error_{}.log.gz"
+
+    requests_file:
+        kind: rolling_file
+        path: "log/requests.log"
+        encoder:
+            pattern: "{l} {M} {m} in {T} {n}"
+        policy:
+            kind: compound
+            trigger:
+                kind: size
+                limit: 1mb
+            roller:
+                kind: fixed_window
+                base: 1
+                count: 5
+                pattern: "logs/archive/requests_{}.log.gz"
+
+    debug_file:
+        kind: rolling_file
+        path: "log/debug.log"
+        encoder:
+            pattern: "{d} {f}:{L}: {h( {l} {M} {m} in {T} )} {n}"
+        policy:
+            kind: compound
+            trigger:
+                kind: size
+                limit: 1mb
+            roller:
+                kind: fixed_window
+                base: 1
+                count: 5
+                pattern: "logs/archive/error_{}.log.gz"
+
+root:
+    level: warn
+    appenders:
+        - stdout
+        #- error_file
+        #- debug_file
+
+loggers:
+    cir_central:
+        level: trace
+    actix_web::middleware::logger:
+        level: info
+        appenders:
+          - requests_file
