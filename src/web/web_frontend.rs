@@ -1,24 +1,36 @@
 // Angular Frontend routing and endpoints
 
+use std::sync::Arc;
+
 use actix::SyncArbiter;
 use actix_web::{
     fs, http, HttpRequest, Error, server, App,
 };
 
 use web::{WebApp, AppState, controllers, init_essential_app_features};
+use web::graphql::{graphql_actor::GraphQLExecutor, schema::create_graphql_schema, self};
 use db::{DBSubsystem, DbExecutor};
 
 pub fn start_frontend_webapp(dbsys: &DBSubsystem, dbworkers_number: usize) {
+    //Init DB Connections
     let clonable = dbsys.clone_pool();
     let dbworkers_addr = SyncArbiter::start(dbworkers_number, move || {
         DbExecutor(clonable.clone())
     });
 
+    //Init GraphQL Engine
+    let schema = Arc::new(create_graphql_schema());
+    let graphql_addr = SyncArbiter::start(3, move || {
+        GraphQLExecutor::new(schema.clone())
+    });
+
+
     server::new(move || {
         init_web_frontend(
             init_essential_app_features(
                 App::with_state(AppState {
-                    db: dbworkers_addr.clone()
+                    db: dbworkers_addr.clone(),
+                    graphql: graphql_addr.clone()
                 })
             )
         )
@@ -39,6 +51,8 @@ pub fn init_web_frontend(app: WebApp) -> WebApp {
                     r.method(http::Method::GET).with(controllers::users::user_view);
                 })
         })
+        .resource("/graphql", |r| r.method(http::Method::POST).with(graphql::controllers::graphql))
+        .resource("/graphiql", |r| r.method(http::Method::GET).h(graphql::controllers::graphiql))
         .handler(
             "/*",
             fs::StaticFiles::new("./frontend").unwrap(),

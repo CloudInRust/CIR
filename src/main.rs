@@ -13,6 +13,8 @@ extern crate chrono;
 // Web crates
 extern crate actix;
 extern crate actix_web;
+#[macro_use]
+extern crate juniper;
 
 //Misc
 #[macro_use]
@@ -20,6 +22,7 @@ extern crate failure;
 extern crate futures;
 #[macro_use]
 extern crate serde_derive;
+extern crate serde_json;
 extern crate bytes;
 
 mod build_info;

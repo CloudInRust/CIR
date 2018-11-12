@@ -4,14 +4,17 @@ use actix_web::{
 };
 
 use db::{DbExecutor};
+use self::graphql::graphql_actor::GraphQLExecutor;
 use error::{error_middleware::ErrorTemplateHandler};
 use build_info;
 
 pub mod web_frontend;
 mod controllers;
+mod graphql;
 
 pub struct AppState {
-    db: Addr<DbExecutor>
+    db: Addr<DbExecutor>,
+    graphql: Addr<GraphQLExecutor>
 }
 
 pub type WebApp = App<AppState>;
