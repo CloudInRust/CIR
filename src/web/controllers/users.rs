@@ -28,7 +28,7 @@ pub fn user_view(
     Box::new(
         state.db.send(GetSingleUser{
             id: Some(id.0),
-            username: None
+            name: None
         })
             .from_err()
             .and_then(|maybe_user| {

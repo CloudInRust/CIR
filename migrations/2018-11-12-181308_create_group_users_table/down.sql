@@ -1,0 +1,1 @@
+DELETE TABLE group_users;

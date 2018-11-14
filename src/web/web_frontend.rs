@@ -8,7 +8,7 @@ use actix_web::{
 };
 
 use web::{WebApp, AppState, controllers, init_essential_app_features};
-use web::graphql::{graphql_actor::GraphQLExecutor, schema::create_graphql_schema, self};
+use web::graphql::{graphql_actor::{GLContext, GraphQLExecutor}, schema::create_graphql_schema, self};
 use db::{DBSubsystem, DbExecutor};
 
 pub fn start_frontend_webapp(dbsys: &DBSubsystem, dbworkers_number: usize) {
@@ -20,8 +20,12 @@ pub fn start_frontend_webapp(dbsys: &DBSubsystem, dbworkers_number: usize) {
 
     //Init GraphQL Engine
     let schema = Arc::new(create_graphql_schema());
+    let clonable2 = dbsys.clone_pool();
     let graphql_addr = SyncArbiter::start(3, move || {
-        GraphQLExecutor::new(schema.clone())
+        GraphQLExecutor {
+            schema: schema.clone(),
+            context: GLContext { db_conn: clonable2.clone() }
+        }
     });
 
 

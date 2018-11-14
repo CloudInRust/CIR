@@ -12,11 +12,11 @@ pub struct User {
     pub email: String,
     pub display_name: String,
     pub created_on: NaiveDateTime,
-    pub modified_on: NaiveDateTime
+    pub modified_on: NaiveDateTime,
 }
 
 #[derive(Insertable)]
-#[table_name="users"]
+#[table_name = "users"]
 pub struct NewUser<'a> {
     pub email: &'a str,
     pub display_name: &'a str,
@@ -37,6 +37,40 @@ pub const ALL_COLUMNS: AllColumns = (
     users::created_on,
     users::modified_on
 );
+
+impl User {
+    pub fn get_all(conn: &DBConn) -> Result<Vec<User>, WebError> {
+        users::dsl::users
+            .select(ALL_COLUMNS)
+            .load::<User>(conn)
+            .map_err(|e| {
+                error!("Error selecting all users: {:?}", e);
+                WebError::DatabaseError(e).into()
+            })
+    }
+
+    pub fn get_by_id(conn: &DBConn, uid: i32) -> Result<User, WebError> {
+        users::dsl::users
+            .select(ALL_COLUMNS)
+            .filter(users::dsl::id.eq(uid))
+            .get_result::<User>(conn)
+            .map_err(|e| {
+                error!("Error selecting user by id: {}: {:?}", uid, e);
+                WebError::DatabaseError(e).into()
+            })
+    }
+
+    pub fn get_by_name(conn: &DBConn, name: &str) -> Result<User, WebError> {
+        users::dsl::users
+            .select(ALL_COLUMNS)
+            .filter(users::dsl::display_name.eq(&name))
+            .get_result::<User>(conn)
+            .map_err(|e| {
+                error!("Error selecting user by name: {}: {:?}", &name, e);
+                WebError::DatabaseError(e).into()
+            })
+    }
+}
 
 // DB ACTOR ACTIONS---------------------------------------
 use actix::prelude::*;
@@ -60,16 +94,8 @@ impl Handler<ListAllUsers> for DbExecutor {
     fn handle(&mut self, _: ListAllUsers, _: &mut Self::Context) -> <Self as Handler<ListAllUsers>>::Result {
         trace!("ListAllUsers received by DBexecutor");
 
-        use db::schema::users::dsl::*;
-
         let conn: &DBConn = &self.0.get().unwrap();
-        users
-            .select(ALL_COLUMNS)
-            .load::<User>(conn)
-            .map_err(|e| {
-                error!("Error selecting all users: {:?}", e);
-                WebError::DatabaseError(e).into()
-            })
+        Ok(User::get_all(conn)?)
     }
 }
 
@@ -79,7 +105,7 @@ impl Handler<ListAllUsers> for DbExecutor {
 #[derive(Debug)]
 pub struct GetSingleUser {
     pub id: Option<i32>,
-    pub username: Option<String>,
+    pub name: Option<String>,
 }
 
 impl Message for GetSingleUser {
@@ -92,30 +118,14 @@ impl Handler<GetSingleUser> for DbExecutor {
     fn handle(&mut self, msg: GetSingleUser, _: &mut Self::Context) -> <Self as Handler<GetSingleUser>>::Result {
         trace!("{:?} received by DBExecutor", msg);
 
-        use db::schema::users;
-
         let conn: &DBConn = &self.0.get().unwrap();
 
         if let Some(uid) = msg.id {
-            return users::dsl::users
-                .select(ALL_COLUMNS)
-                .filter(users::dsl::id.eq(uid))
-                .get_result::<User>(conn)
-                .map_err(|e| {
-                    error!("Error selecting user by id: {}: {:?}", uid, e);
-                    WebError::DatabaseError(e).into()
-                });
-        } else if let Some(username) = msg.username {
-            return users::dsl::users
-                .select(ALL_COLUMNS)
-                .filter(users::dsl::username.eq(&username))
-                .get_result::<User>(conn)
-                .map_err(|e| {
-                    error!("Error selecting user by username: {}: {:?}", &username, e);
-                    WebError::DatabaseError(e).into()
-                });
+            return Ok(User::get_by_id(conn, uid)?);
+        } else if let Some(name) = msg.name {
+            return Ok(User::get_by_name(conn, &name)?);
         } else {
-            error!("GetSinglUser message sent to DB Worker without id or username defined");
+            error!("GetSinglUser message sent to DB Worker without id or name defined");
             Err(WebError::InternalError.into())
         }
     }
